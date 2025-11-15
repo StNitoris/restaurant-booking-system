@@ -32,18 +32,39 @@
 
 ## 构建与运行
 
+在首次尝试运行前，请确认已经安装：
+
+- **CMake 3.16+**（Windows 用户建议使用 [CMake 官方安装包](https://cmake.org/download/) 并勾选 *Add CMake to system PATH*）。
+- **C++17 编译器**：例如 Linux/macOS 上的 `g++`/`clang++`，或 Windows 上的 *Visual Studio 2019 及以上版本*（勾选“使用 C++ 的桌面开发”工作负载）。
+
+随后根据需要选择命令行或图形界面方式进行构建运行。
+
+### 方式一：命令行构建（跨平台）
+
 ```bash
+# 1. 在仓库根目录执行（Windows PowerShell 亦可）
 cmake -S . -B build
+
+# 2. 编译生成可执行文件
 cmake --build build
 
-# 命令行模式
-./build/restaurant_booking
+# 3a. 运行命令行版本
+./build/restaurant_booking            # Windows 上改为 .\build\Debug\restaurant_booking.exe
 
-# Web 前端模式（默认端口 8080，可通过参数指定其他端口与静态目录）
-./build/restaurant_booking_server [端口号] [静态文件目录]
+# 3b. 运行 Web 服务并访问前端（默认端口 8080）
+./build/restaurant_booking_server     # Windows 上改为 .\build\Debug\restaurant_booking_server.exe
 ```
 
+> 💡 如果在 Windows 上看到“无法启动程序，因为缺少 MSVCP***.dll”之类的提示，请使用 **x64 Native Tools Command Prompt for VS** 或 VS Developer PowerShell 重新执行以上命令，即可自动使用 Visual Studio 的编译器与运行时。
+
 命令行程序启动后将显示交互式菜单，可根据提示进行桌位查询、创建预订、处理散客、录入点餐以及生成报表等操作。
+
+若运行 Web 服务，请在启动后于浏览器访问 `http://localhost:8080`（或你指定的端口）。静态资源默认来自仓库的 `web/` 目录，也可以通过命令行参数调整：
+
+```bash
+# 自定义端口与静态目录示例
+./build/restaurant_booking_server 9000 ./web
+```
 
 Web 版本会在本地启动一个极简的 HTTP 服务，默认挂载 `web/` 目录下的静态前端页面。启动后在浏览器访问 `http://localhost:8080` 即可看到可视化界面：
 
@@ -56,6 +77,17 @@ Web 版本会在本地启动一个极简的 HTTP 服务，默认挂载 `web/` �
 - **员工信息**：展示种子数据中配置的前台与经理账号，呼应权限模型。
 
 前端仅作为课程作业的演示界面，所有数据仍存放在内存中，重启服务后会回到初始状态。
+
+### 方式二：使用 Visual Studio（Windows）
+
+1. 打开 **x64 Native Tools Command Prompt for VS**，执行 `cmake -S . -B build -G "Visual Studio 17 2022"` 生成解决方案文件。
+2. 用 Visual Studio 打开 `build/restaurant_booking.sln`。
+3. 选择需要的启动项目：
+   - `restaurant_booking`：命令行界面。
+   - `restaurant_booking_server`：带前端的 HTTP 服务。
+4. 直接按 **F5**/“本地 Windows 调试器”即可试运行。若选择 Web 服务，记得在浏览器访问 `http://localhost:8080`。
+
+这样即可在熟悉的 IDE 中编译、调试与演示系统。
 
 - **HTTP API 拓展**：
   - `GET /api/reservations/{id}`：返回单条预订的完整详情（顾客信息、时间、桌位、状态、最后更新时间等）。
