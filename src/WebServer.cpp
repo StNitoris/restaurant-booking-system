@@ -29,6 +29,7 @@
 #include <string>
 #include <thread>
 #include <unordered_map>
+#include <utility>
 #include <vector>
 
 namespace booking {
@@ -79,6 +80,7 @@ struct HttpResponse {
     int status = 200;
     std::string contentType = "application/json; charset=utf-8";
     std::string body;
+    std::vector<std::pair<std::string, std::string>> headers;
 };
 
 std::string statusMessage(int status) {
@@ -531,11 +533,38 @@ std::string reportToJson(const Report &report) {
     return oss.str();
 }
 
+bool hasHeader(const HttpResponse &response, const std::string &key) {
+    for (const auto &header : response.headers) {
+        if (headerEquals(header.first, key)) {
+            return true;
+        }
+    }
+    return false;
+}
+
+void ensureHeader(HttpResponse &response, const std::string &key, const std::string &value) {
+    if (!hasHeader(response, key)) {
+        response.headers.emplace_back(key, value);
+    }
+}
+
+void applyCorsHeaders(HttpResponse &response, bool includeMethods) {
+    ensureHeader(response, "Access-Control-Allow-Origin", "*");
+    if (includeMethods) {
+        ensureHeader(response, "Access-Control-Allow-Methods", "GET,POST,PUT,DELETE,OPTIONS");
+        ensureHeader(response, "Access-Control-Allow-Headers", "Content-Type");
+        ensureHeader(response, "Access-Control-Max-Age", "86400");
+    }
+}
+
 std::string buildResponse(const HttpResponse &response) {
     std::ostringstream oss;
     oss << "HTTP/1.1 " << response.status << ' ' << statusMessage(response.status) << "\r\n";
     oss << "Content-Type: " << response.contentType << "\r\n";
     oss << "Content-Length: " << response.body.size() << "\r\n";
+    for (const auto &header : response.headers) {
+        oss << header.first << ": " << header.second << "\r\n";
+    }
     oss << "Connection: close\r\n\r\n";
     oss << response.body;
     return oss.str();
@@ -594,6 +623,15 @@ HttpResponse serveStaticFile(const std::string &root, const std::string &path) {
     response.status = 200;
     response.contentType = guessMimeType(fullPath);
     response.body = *content;
+    return response;
+}
+
+HttpResponse buildPreflightResponse() {
+    HttpResponse response;
+    response.status = 204;
+    response.contentType = "text/plain; charset=utf-8";
+    response.body.clear();
+    applyCorsHeaders(response, true);
     return response;
 }
 
@@ -864,11 +902,17 @@ void handleClient(SocketHandle clientFd,
         return;
     }
 
+    bool isApiRequest = startsWith(request.path, "/api/");
+
     HttpResponse response;
-    if (startsWith(request.path, "/api/")) {
+    if (request.method == "OPTIONS" && isApiRequest) {
+        response = buildPreflightResponse();
+    } else if (isApiRequest) {
         response = handleApiRequest(request, restaurant, mutex);
+        applyCorsHeaders(response, true);
     } else {
         response = serveStaticFile(staticRoot, request.path);
+        applyCorsHeaders(response, false);
     }
 
     auto text = buildResponse(response);
