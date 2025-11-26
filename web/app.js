@@ -63,9 +63,22 @@ function normalizeApiPath(url) {
 }
 
 const STORAGE_AVAILABLE = supportsLocalStorage();
+const USING_FILE_ORIGIN = window.location.protocol === "file:" || window.location.origin === "null";
+const USE_MOCK_API = false;
+
 const runtimeConfiguredApiBase =
   typeof window !== "undefined" && window.__BOOKING_API_BASE__ ? window.__BOOKING_API_BASE__ : null;
-const storedConfiguredApiBase = (() => {
+const queryConfiguredApiBase = (() => {
+  try {
+    const params = new URLSearchParams(window.location.search || "");
+    const value = params.get("api") || params.get("apiBase");
+    return value && value.trim().length > 0 ? value.trim() : null;
+  } catch (error) {
+    return null;
+  }
+})();
+
+function readStoredApiBase() {
   if (!STORAGE_AVAILABLE) {
     return null;
   }
@@ -74,20 +87,82 @@ const storedConfiguredApiBase = (() => {
   } catch (error) {
     return null;
   }
-})();
+}
 
-if (runtimeConfiguredApiBase && STORAGE_AVAILABLE) {
+function persistApiBase(base) {
+  if (!STORAGE_AVAILABLE || !base) {
+    return;
+  }
   try {
-    window.localStorage.setItem("restaurant-booking-api-base", runtimeConfiguredApiBase);
+    window.localStorage.setItem("restaurant-booking-api-base", base);
   } catch (error) {
     // 忽略存储异常
   }
 }
 
-const ACTIVE_API_BASE = runtimeConfiguredApiBase || storedConfiguredApiBase || null;
-const USING_FILE_ORIGIN = window.location.protocol === "file:" || window.location.origin === "null";
-const USE_MOCK_API = false;
-const API_BASE = ACTIVE_API_BASE || (USING_FILE_ORIGIN ? FALLBACK_API_BASE : "");
+let apiBase = runtimeConfiguredApiBase || queryConfiguredApiBase || readStoredApiBase();
+const USE_SAME_ORIGIN = !USING_FILE_ORIGIN && !apiBase;
+if (USE_SAME_ORIGIN) {
+  apiBase = "";
+}
+
+async function probeApiBase(candidate) {
+  const normalized = candidate.endsWith("/") ? candidate.slice(0, -1) : candidate;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 1500);
+  try {
+    const response = await fetch(`${normalized}/api/tables`, { signal: controller.signal });
+    if (response.ok) {
+      persistApiBase(normalized);
+      return normalized;
+    }
+  } catch (error) {
+    // 继续尝试其他候选
+  } finally {
+    clearTimeout(timer);
+  }
+  return null;
+}
+
+async function ensureApiBase() {
+  if (apiBase !== null && apiBase !== undefined) {
+    return apiBase;
+  }
+
+  const candidates = [];
+  const stored = readStoredApiBase();
+  const inferredSameOrigin = !USING_FILE_ORIGIN && window.location.origin ? window.location.origin : null;
+  const inferredPort = window.location.port || "8080";
+
+  [runtimeConfiguredApiBase, queryConfiguredApiBase, stored, inferredSameOrigin]
+    .filter(Boolean)
+    .forEach((item) => candidates.push(item));
+
+  ["8080", "8880"].forEach((port) => {
+    candidates.push(`http://localhost:${port}`);
+    candidates.push(`http://127.0.0.1:${port}`);
+    candidates.push(`http://[::1]:${port}`);
+  });
+
+  if (!candidates.length && USING_FILE_ORIGIN) {
+    candidates.push(`http://localhost:${inferredPort}`);
+  }
+
+  const seen = new Set();
+  for (const candidate of candidates) {
+    if (!candidate || seen.has(candidate)) {
+      continue;
+    }
+    seen.add(candidate);
+    const resolved = await probeApiBase(candidate);
+    if (resolved !== null) {
+      apiBase = resolved;
+      return apiBase;
+    }
+  }
+
+  throw new Error("无法连接后端 API，请确认后端已启动，并在地址栏添加 ?api=http://localhost:端口 覆盖。建议使用服务器同端口打开页面。");
+}
 
 function createMockApi() {
   const storageKey = "restaurant-booking-demo-state";
@@ -686,14 +761,15 @@ let reservationsCache = [];
 let menuCache = [];
 
 async function apiFetch(url, options = {}) {
-  return fetch(resolveApi(url), options);
+  const base = await ensureApiBase();
+  return fetch(resolveApi(url, base), options);
 }
 
-function resolveApi(path) {
+function resolveApi(path, base = apiBase ?? "") {
   if (/^https?:\/\//.test(path)) {
     return path;
   }
-  return `${API_BASE}${path}`;
+  return `${base}${path}`;
 }
 
 function normalizeError(error) {
@@ -702,7 +778,7 @@ function normalizeError(error) {
       window.location.origin && window.location.origin !== "null"
         ? window.location.origin
         : FALLBACK_API_BASE;
-    const target = API_BASE || currentOrigin;
+    const target = apiBase ?? currentOrigin;
     return `无法连接服务器，请确认已启动后端服务（${target}）。`;
   }
   return error.message || "发生未知错误";
