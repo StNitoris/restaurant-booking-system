@@ -835,7 +835,7 @@ HttpResponse handleApiRequest(const HttpRequest &request,
     if ((request.method == "PUT" || request.method == "DELETE") && isReservationIdPath(request.path)) {
         auto id = request.path.substr(reservationIdPrefix.size());
         if (request.method == "DELETE") {
-            if (!sheet.cancelReservation(id)) {
+            if (!sheet.deleteReservation(id)) {
                 return {404, "text/plain; charset=utf-8", "Reservation not found"};
             }
             response.body = "{\"success\":true}";
