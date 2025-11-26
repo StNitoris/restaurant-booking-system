@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="zh">
+  <head>
+    <meta charset="UTF-8" />
+    <title>餐厅预订系统前端</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <header>
+      <h1>餐厅预订系统</h1>
+      <p>使用下方界面即可查看桌位、预订、点餐信息，并创建新的预订或散客登记。</p>
+    </header>
+
+    <main>
+      <section class="panel">
+        <div class="panel-header">
+          <div>
+            <h2>桌位概览</h2>
+            <p class="panel-subtitle">随时查看每张桌位的状态与分配情况</p>
+          </div>
+          <div class="actions">
+            <button id="refreshTables">刷新桌位状态</button>
+          </div>
+        </div>
+        <div id="tables" class="grid"></div>
+      </section>
+
+      <section class="panel panel-wide">
+        <div class="panel-header">
+          <div>
+            <h2>预订列表</h2>
+            <p class="panel-subtitle">长表格区域支持滚动，可直接删除或重新分配桌位</p>
+          </div>
+          <div class="actions">
+            <button id="refreshReservations">刷新预订</button>
+          </div>
+        </div>
+        <div class="table-wrapper">
+          <table id="reservationTable">
+            <thead>
+              <tr>
+                <th>编号</th>
+                <th>客人</th>
+                <th>人数</th>
+                <th>时间</th>
+                <th>桌号</th>
+                <th>状态</th>
+                <th>操作</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="panel panel-wide">
+        <div class="panel-header">
+          <div>
+            <h2>录入点餐</h2>
+            <p class="panel-subtitle">为已预订客人快速录入菜品并查看订单明细</p>
+          </div>
+        </div>
+        <form id="orderForm">
+          <div class="field">
+            <label>预订编号</label>
+            <select name="reservationId" id="orderReservation" required>
+              <option value="">请选择预订</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>菜品</label>
+            <div id="orderItems" class="order-items"></div>
+            <button type="button" id="addOrderItem">添加菜品</button>
+          </div>
+          <button type="submit" class="order-submit">提交订单</button>
+          <p class="feedback" id="orderFeedback"></p>
+        </form>
+        <div class="orders-view">
+          <div class="panel-subheader">
+            <h3>当前订单</h3>
+            <div class="actions">
+              <button id="refreshOrders">刷新订单</button>
+            </div>
+          </div>
+          <div class="table-wrapper">
+            <table id="ordersTable">
+              <thead>
+                <tr>
+                  <th>订单号</th>
+                  <th>预订编号</th>
+                  <th>菜品明细</th>
+                  <th>金额</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-header">
+          <div>
+            <h2>创建预订</h2>
+            <p class="panel-subtitle">填写基础信息即可生成 R 前缀的预订编号</p>
+          </div>
+        </div>
+        <form id="reservationForm">
+          <div class="field">
+            <label>顾客姓名</label>
+            <input type="text" name="name" required />
+          </div>
+          <div class="field">
+            <label>联系方式</label>
+            <input type="text" name="phone" required />
+          </div>
+          <div class="field">
+            <label>邮箱</label>
+            <input type="email" name="email" />
+          </div>
+          <div class="field">
+            <label>口味偏好</label>
+            <input type="text" name="preference" />
+          </div>
+          <div class="field">
+            <label>就餐人数</label>
+            <input type="number" name="partySize" min="1" value="2" required />
+          </div>
+          <div class="field">
+            <label>预订时间 (YYYY-MM-DD HH:MM)</label>
+            <input type="text" name="time" placeholder="2024-05-20 18:30" required />
+          </div>
+          <div class="field">
+            <label>备注</label>
+            <textarea name="notes"></textarea>
+          </div>
+          <button type="submit">提交预订</button>
+          <p class="feedback" id="reservationFeedback"></p>
+        </form>
+      </section>
+
+      <section class="panel">
+        <div class="panel-header">
+          <div>
+            <h2>散客快速登记</h2>
+            <p class="panel-subtitle">记录 W 前缀散客并保持联系方式</p>
+          </div>
+        </div>
+        <form id="walkInForm">
+          <div class="field">
+            <label>顾客姓名</label>
+            <input type="text" name="name" required />
+          </div>
+          <div class="field">
+            <label>联系方式</label>
+            <input type="text" name="phone" required />
+          </div>
+          <div class="field">
+            <label>就餐人数</label>
+            <input type="number" name="partySize" min="1" value="2" required />
+          </div>
+          <div class="field">
+            <label>备注</label>
+            <textarea name="notes"></textarea>
+          </div>
+          <button type="submit">登记散客</button>
+          <p class="feedback" id="walkInFeedback"></p>
+        </form>
+      </section>
+
+      <section class="panel">
+        <div class="panel-header">
+          <div>
+            <h2>菜单与今日经营</h2>
+            <p class="panel-subtitle">结合菜单与实时报表，掌握营业情况</p>
+          </div>
+          <div class="actions">
+            <button id="refreshReport">刷新报表</button>
+          </div>
+        </div>
+        <div class="two-column">
+          <div>
+            <h3>菜单</h3>
+            <ul id="menuList"></ul>
+          </div>
+          <div>
+            <h3>今日数据</h3>
+            <div id="report"></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-header">
+          <div>
+            <h2>员工信息</h2>
+            <p class="panel-subtitle">查看前厅与后厨成员的当班角色</p>
+          </div>
+          <div class="actions">
+            <button id="refreshStaff">刷新员工列表</button>
+          </div>
+        </div>
+        <ul id="staffList" class="staff-list"></ul>
+      </section>
+    </main>
+
+    <script src="app.js"></script>
+  </body>
+</html>
